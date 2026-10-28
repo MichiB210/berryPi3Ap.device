@@ -49,8 +49,8 @@ Poseidon bindet den Stick ein, lesen kann AmigaOS NTFS aber nur mit einem passen
 - Quellen: [github.com/salass00/ntfs-3g](https://github.com/salass00/ntfs-3g), [github.com/salass00/filesysbox](https://github.com/salass00/filesysbox)
 - Installation laut Anleitung im Archiv.
 
-**Netzwerk (LAN) – in Vorbereitung**
-USB-LAN-Adapter mit Realtek **RTL8152B** bieten eine zweite USB-Konfiguration „CDC Ethernet“. Dafür gibt es die **cdceth.class** (SANA-II-Treiber `usbcdceth.device`) in **Poseidon 6.x** von AmigaPorts: [github.com/AmigaPorts/poseidon](https://github.com/AmigaPorts/poseidon). Sie benötigt die poseidon.library ab Version 6 und läuft daher nicht mit Poseidon 4.5. Getestet mit diesem Treiber ist das noch nicht.
+**Netzwerk (LAN) – in Vorbereitung, noch nicht umgesetzt**
+Am LAN-Teil wurde bisher **noch nichts gemacht und nichts getestet**. Geplant ist folgender Weg: USB-LAN-Adapter mit Realtek **RTL8152B** bieten eine zweite USB-Konfiguration „CDC Ethernet“. Dafür gibt es die **cdceth.class** (SANA-II-Treiber `usbcdceth.device`) in **Poseidon 6.x** von AmigaPorts: [github.com/AmigaPorts/poseidon](https://github.com/AmigaPorts/poseidon). Sie benötigt die poseidon.library ab Version 6 und läuft daher nicht mit Poseidon 4.5.
 
 ### Diagnose mit B3Diag
 ```
@@ -67,6 +67,9 @@ Bei Problemen bitte die B3Diag-Ausgabe mitschicken.
 - Low-Speed-Gerät hinter einem **Full-Speed**-Hub wird abgelehnt (Grenze der Hardware, auch unter Linux).
 - Feste Adressen für die Pi-Hardware unter Emu68 (noch nicht über `devicetree.resource`).
 - Nur Raspberry Pi 3A+ getestet.
+- Nur mit **Poseidon 4.5** getestet.
+- **Num-Lock** gibt es auf dem Amiga nicht: Der Ziffernblock liefert immer Ziffern, die Num-Lock-Taste und ihre Leuchte haben keine Funktion. Das liegt nicht am Treiber.
+- **LAN (RTL8152B):** Dafür wurde noch nichts gemacht und nichts getestet. Siehe „Netzwerk (LAN) – in Vorbereitung“.
 
 ### Selbst bauen
 ```
@@ -121,7 +124,7 @@ Die Assembler-Vorgängerversionen sind in der Git-Historie dieses Repositorys er
 ### Additional software
 - **Keyboard repeat:** Poseidon 4.5's hid.class does not generate key repeat on newer OS versions, with any USB driver. Install the updated **hid.class V4.4** from individual Computers ([RapidRoad wiki](https://wiki.icomp.de/wiki/RapidRoad), *HIDclassV44.lha*) into `SYS:Classes/USB/`. The Amiga has no Num Lock.
 - **NTFS media:** use **NTFS-3G** for AmigaOS (needs filesysbox.library): Aminet [`disk/misc/ntfs3g.m68k-amigaos`](https://aminet.net/package/disk/misc/ntfs3g.m68k-amigaos), sources at [salass00/ntfs-3g](https://github.com/salass00/ntfs-3g).
-- **Network (in preparation):** RTL8152B adapters offer a second "CDC Ethernet" configuration, handled by **cdceth.class** (`usbcdceth.device`) from **Poseidon 6.x** ([AmigaPorts/poseidon](https://github.com/AmigaPorts/poseidon)), which requires poseidon.library v6+. Not yet tested with this driver.
+- **Network (planned, not done yet):** nothing has been implemented or tested for LAN so far. Plan: RTL8152B adapters offer a second "CDC Ethernet" configuration, handled by **cdceth.class** (`usbcdceth.device`) from **Poseidon 6.x** ([AmigaPorts/poseidon](https://github.com/AmigaPorts/poseidon)), which requires poseidon.library v6+.
 
 ### Diagnostics
 `B3Diag CLEAN` (or CLEAR / RESET) resets the counters, then run your test, then `B3Diag` shows the results. Please include the output when reporting problems.
@@ -132,6 +135,9 @@ Die Assembler-Vorgängerversionen sind in der Git-Historie dieses Repositorys er
 - Low-speed devices behind a full-speed hub are refused (hardware limit, as in Linux).
 - Fixed Emu68 addresses for the Pi hardware (not yet read from `devicetree.resource`).
 - Tested on a Raspberry Pi 3A+ only.
+- Tested with **Poseidon 4.5** only.
+- The Amiga has **no Num Lock**: the numeric keypad always produces digits; the Num Lock key and its LED have no function. This is not a driver issue.
+- **LAN (RTL8152B):** nothing has been done or tested yet (see "Network").
 
 ### Building
 `PATH=<toolchain>/bin:$PATH ./build.sh` with the bebbo `m68k-amigaos-gcc` toolchain (tested with GCC 16.2).
