@@ -1,0 +1,3 @@
+*.o
+/berrypi3ap.device
+/B3Diag
