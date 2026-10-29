@@ -34,10 +34,12 @@
 #define DATA_AREA_SIZE  (64UL * 1024UL + 1024UL)   /* ctrl + bulk chunks */
 #define INTR_AREA_SIZE  1024UL
 
+#ifndef ROMBUILD
 struct DevBase {
     struct Device db_Dev;
     BPTR          db_SegList;
 };
+#endif
 
 /* Global driver state - single unit, single instance. */
 struct Drv {
@@ -95,8 +97,10 @@ struct Drv {
     struct B3Stats      st;
 };
 
+#ifndef ROMBUILD
 extern struct Drv drv;
 extern struct ExecBase *SysBase;
+#endif
 
 static inline void new_list(struct List *l)
 {
@@ -161,6 +165,68 @@ void   chan1_disable(void);
 BOOL   chan1_busy(void);
 ULONG  chan1_hctsiz(void);
 
+/* periodic engine state (xfer.c) */
+struct PeState {
+    struct IOUsbHWReq *cur;
+    UBYTE  phase, cs, errs;
+    BOOL   abort, in, split;
+    UWORD  ss_frame;
+    ULONG  size_ss, len, mps, start_us;
+    struct chan_req c;
+};
+
+#ifdef ROMBUILD
+/* ROM build: a Kickstart module has no writable data or BSS, so every
+ * variable lives in the device base (allocated by MakeLibrary from the
+ * init table) and the code reaches it through a4.  Every way into the
+ * driver loads a4 and restores the caller's value (start.S): the device
+ * vectors (a6 = base), the interrupt servers (is_Data = base), the unit
+ * task (tc_UserData = base) and the ColdReboot patch (FindName). */
+#include <exec/interrupts.h>
+
+struct RomVars {
+    /* device.c */
+    struct timerequest *tsleep;
+    struct MsgPort     *sport;
+    ULONG               timer_armed_ms, timer_asked_ms;
+    ULONG               wake_target;
+    BOOL                wake_armed, watchdog_running;
+    BOOL                starting;
+    /* hw.c, hw_ms_now() */
+    UWORD               last;
+    ULONG               ticks_acc, ms;
+    /* irq.c */
+    struct Interrupt    irq_server;
+    struct Interrupt    kbd_handler;
+    struct IOStdReq    *kbd_req;
+    BOOL                server_added, kbd_added;
+    APTR                irq_old_coldreboot;
+    volatile BOOL       irq_on;
+    UWORD               storm_frame, storm_cnt;
+    /* xfer.c */
+    volatile BOOL       pe_enabled;
+    struct PeState      pe;
+};
+
+struct DevBase {
+    struct Device       db_Dev;
+    BPTR                db_SegList;
+    struct ExecBase    *db_SysBase;
+    struct Drv          db_Drv;
+    struct RomVars      db_Vars;
+};
+
+register struct DevBase *rom_base __asm__("a4");
+
+#define SysBase     (rom_base->db_SysBase)
+#define drv         (rom_base->db_Drv)
+#define RV(x)       (rom_base->db_Vars.x)
+#define pe_enabled  RV(pe_enabled)
+#define ROM_DATA    ((APTR)rom_base)
+#else
+#define ROM_DATA    NULL
+#endif
+
 /* toggles.c (in xfer.c) */
 BOOL   tog_get(UBYTE addr, UBYTE ep, BOOL in);
 void   tog_set(UBYTE addr, UBYTE ep, BOOL in, BOOL data1);
@@ -175,7 +241,9 @@ BOOL   xfer_intr_due(struct IOUsbHWReq *io, UWORD now);
 
 /* periodic engine (xfer.c, 105.0): interrupt polls on channel 1, run
  * from the interrupt.  pe_kick/pe_on_* need interrupts disabled. */
+#ifndef ROMBUILD
 extern volatile BOOL pe_enabled;
+#endif
 void   pe_kick(void);
 void   pe_on_timer(void);
 void   pe_on_chan(ULONG hcint);

@@ -1,3 +1,4 @@
 *.o
 /berrypi3ap.device
+/berrypi3ap_rom.device
 /B3Diag

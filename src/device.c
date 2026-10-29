@@ -24,11 +24,22 @@
 #include <utility/tagitem.h>
 #include <dos/dos.h>
 #include <proto/exec.h>
+#ifdef ROMBUILD
+#include <string.h>
+#endif
 #include "dev.h"
 #include "regs.h"
 
+#ifndef ROMBUILD
 struct ExecBase *SysBase;
 struct Drv drv;
+#else
+/* offsets used by start.S */
+_Static_assert(__builtin_offsetof(struct Task, tc_UserData) == 88,
+               "start.S unit_task_stub");
+_Static_assert(__builtin_offsetof(struct ExecBase, DeviceList) == 350,
+               "start.S coldreboot_patch");
+#endif
 
 #define STR2(x) #x
 #define STR(x) STR2(x)
@@ -76,10 +87,17 @@ const struct Resident dev_romtag __attribute__((used)) = {
     RTC_MATCHWORD,
     (struct Resident *)&dev_romtag,
     (APTR)(&dev_romtag + 1),
+#ifdef ROMBUILD
+    RTF_AUTOINIT | RTF_COLDSTART,       /* before poseidon.library (-44) */
+    DEV_VERSION,
+    NT_DEVICE,
+    -42,
+#else
     RTF_AUTOINIT,
     DEV_VERSION,
     NT_DEVICE,
     0,
+#endif
     (char *)dev_name,
     (char *)dev_idstring,
     (APTR)dev_inittable
@@ -105,8 +123,13 @@ static void list_add(struct List *l, struct IOUsbHWReq *io)
 
 void hw_delay_ms(ULONG ms);     /* below, needs the unit task's timer */
 
+#ifdef ROMBUILD
+#define tsleep  RV(tsleep)
+#define sport   RV(sport)
+#else
 static struct timerequest *tsleep;
 static struct MsgPort *sport;
+#endif
 
 void hw_delay_ms(ULONG ms)
 {
@@ -347,9 +370,17 @@ static BOOL do_work(void)
     return busy;
 }
 
+#ifdef ROMBUILD
+#define timer_armed_ms      RV(timer_armed_ms)
+#define timer_asked_ms      RV(timer_asked_ms)
+#define wake_target         RV(wake_target)
+#define wake_armed          RV(wake_armed)
+#define watchdog_running    RV(watchdog_running)
+#else
 static ULONG timer_armed_ms, timer_asked_ms;
 static ULONG wake_target;
 static BOOL  wake_armed, watchdog_running;
+#endif
 
 static void note_wake_late(void)
 {
@@ -543,6 +574,15 @@ fail:
     /* task ends; exec frees it (memory is leaked on this error path) */
 }
 
+#ifdef ROMBUILD
+extern void unit_task_stub(void);   /* start.S: loads a4, jumps here */
+
+void unit_task_rom(void)
+{
+    unit_task();
+}
+#endif
+
 static LONG start_unit(void)
 {
     struct Task *t;
@@ -585,7 +625,12 @@ static LONG start_unit(void)
     drv.init_result = 0;
 
     drv.task = t;
+#ifdef ROMBUILD
+    t->tc_UserData = rom_base;
+    AddTask(t, (APTR)unit_task_stub, NULL);
+#else
     AddTask(t, (APTR)unit_task, NULL);
+#endif
     Wait(1UL << drv.opener_sig);
     FreeSignal(drv.opener_sig);
 
@@ -596,6 +641,11 @@ static LONG start_unit(void)
 
 struct DevBase *dev_init(struct DevBase *base, BPTR seglist, struct ExecBase *sys)
 {
+#ifdef ROMBUILD
+    /* MakeLibrary does not promise a cleared data area; base == a4 */
+    memset((UBYTE *)base + sizeof(struct Device), 0,
+           sizeof(struct DevBase) - sizeof(struct Device));
+#endif
     SysBase = sys;
     base->db_SegList = seglist;
     base->db_Dev.dd_Library.lib_Node.ln_Type = NT_DEVICE;
@@ -614,7 +664,11 @@ struct DevBase *dev_init(struct DevBase *base, BPTR seglist, struct ExecBase *sy
     return base;
 }
 
+#ifdef ROMBUILD
+#define starting RV(starting)
+#else
 static BOOL starting;
+#endif
 
 void dev_open(struct DevBase *base, struct IOUsbHWReq *io, ULONG unit, ULONG flags)
 {

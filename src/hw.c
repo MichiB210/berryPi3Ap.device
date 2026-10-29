@@ -268,8 +268,14 @@ UWORD hw_frame_diff(UWORD later, UWORD earlier)
  * the unit task calls it on every scheduling round. */
 ULONG hw_ms_now(void)
 {
+#ifdef ROMBUILD
+#define last        RV(last)
+#define ticks_acc   RV(ticks_acc)
+#define ms          RV(ms)
+#else
     static UWORD last;
     static ULONG ticks_acc, ms;
+#endif
     UWORD now = hw_frnum();
     ULONG tpm = hw_ticks_per_ms();
 
@@ -278,6 +284,11 @@ ULONG hw_ms_now(void)
     ms += ticks_acc / tpm;
     ticks_acc %= tpm;
     return ms;
+#ifdef ROMBUILD
+#undef last
+#undef ticks_acc
+#undef ms
+#endif
 }
 
 void hw_wait_next_tick(void)
