@@ -91,6 +91,17 @@ ULONG irq_us_now(void)
     return st_rd(ST_CLO);
 }
 
+#ifdef ROMBUILD
+#define irq_server          RV(irq_server)
+#define kbd_handler         RV(kbd_handler)
+#define kbd_req             RV(kbd_req)
+#define server_added        RV(server_added)
+#define kbd_added           RV(kbd_added)
+#define irq_old_coldreboot  RV(irq_old_coldreboot)
+#define irq_on              RV(irq_on)
+#define storm_frame         RV(storm_frame)
+#define storm_cnt           RV(storm_cnt)
+#else
 static struct Interrupt irq_server;
 static struct Interrupt kbd_handler;
 static struct IOStdReq *kbd_req;
@@ -98,6 +109,7 @@ static BOOL server_added, kbd_added;
 APTR irq_old_coldreboot;            /* used by the asm patch */
 static volatile BOOL irq_on;
 static UWORD storm_frame, storm_cnt;
+#endif
 
 extern void irq_server_stub(void);
 extern void kbd_reset_stub(void);
@@ -196,6 +208,16 @@ ULONG kbd_reset_c(APTR data)
     return 0;
 }
 
+#ifdef ROMBUILD
+/* ROM build: the ColdReboot patch in start.S has found the device base
+ * and loaded a4; returns the original ColdReboot to continue with. */
+APTR coldreboot_rom(void)
+{
+    irq_off();
+    return irq_old_coldreboot;
+}
+#endif
+
 void irq_reset_done(void)
 {
     if (kbd_added) {
@@ -219,7 +241,7 @@ void irq_init(void)
             kbd_handler.is_Node.ln_Pri = 16;
             kbd_handler.is_Node.ln_Name = (char *)DEVNAME;
             kbd_handler.is_Code = (void (*)(void))kbd_reset_stub;
-            kbd_handler.is_Data = NULL;
+            kbd_handler.is_Data = ROM_DATA;
             kbd_req->io_Command = KBD_ADDRESETHANDLER;
             kbd_req->io_Data = &kbd_handler;
             DoIO((struct IORequest *)kbd_req);
@@ -237,7 +259,7 @@ void irq_init(void)
     irq_server.is_Node.ln_Pri = 127;
     irq_server.is_Node.ln_Name = (char *)DEVNAME;
     irq_server.is_Code = (void (*)(void))irq_server_stub;
-    irq_server.is_Data = NULL;
+    irq_server.is_Data = ROM_DATA;
     AddIntServer(INTB_EXTER, &irq_server);
     server_added = TRUE;
 

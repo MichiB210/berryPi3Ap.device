@@ -905,16 +905,13 @@ dma_fail:
 #define PE_CS       3
 #define PE_WAIT_UF  4
 
+#ifdef ROMBUILD
+#define pe RV(pe)
+#else
 volatile BOOL pe_enabled;
 
-static struct {
-    struct IOUsbHWReq *cur;
-    UBYTE  phase, cs, errs;
-    BOOL   abort, in, split;
-    UWORD  ss_frame;
-    ULONG  size_ss, len, mps, start_us;
-    struct chan_req c;
-} pe;
+static struct PeState pe;
+#endif
 
 static ULONG pe_ms(void)
 {
